@@ -11,6 +11,7 @@
   "dependencies": {
     "cors": "^2.8.5",
     "express": "^4.17.1",
-    "mocker-data-generator": "^2.8.0"
+    "mocker-data-generator": "^2.12.0",
+    "nodemon": "^3.1.9"
   }
 }

@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import wordninja
 import nltk
-import gensim
+#import gensim
 import enchant
-import sister
+from sentence_transformers import SentenceTransformer
+#import sister
 from bs4 import BeautifulSoup
 import string
 from num2words import num2words
@@ -16,6 +17,7 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.common.by import By
 from prettytable import PrettyTable
 import requests
 import time
@@ -32,14 +34,16 @@ class webEnv:
     def __init__(self,url,BaseURL="http://localhost/timeclock/",actionWait=0.5):
         self.url = url
         self.tags_to_find = ['input','button','a','select']
-        self.website  = webdriver.Firefox()
+        self.website  = webdriver.Chrome()
         self.website.get(url)
         self.datalabel = ['zipcode','city','streetname','secondaryaddress',
                 'county','country','countrycode','state','stateabbr',
                 'latitude','longitude','address','email','username',
                 'password','sentence','word','paragraph','firstname',
                 'lastname','fullname','age','phonenumber','date']
-        self.embedding = sister.MeanEmbedding(lang="en")
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
+        #self.embedding = self.model.encode("This is a test sentence.")
+        #self.embedding = sister.MeanEmbedding(lang="en")
         self.edict = enchant.Dict('en_US')
         self.tagAttr = {'a':[''],'button':['value','name'],
                         'select':['name','class'],
@@ -52,7 +56,7 @@ class webEnv:
     def get_Actions_OR_state(self,action=False):
         tagstr = []
         for x in self.tags_to_find:
-            xtags = self.website.find_elements_by_tag_name(x)
+            xtags = self.website.find_elements(By.TAG_NAME,x)
             if xtags!=[]:
                 for element in xtags:
                     s = x+"!@!"
@@ -147,7 +151,7 @@ class webEnv:
         if hreflist==[]:
             try:
                 XPATH = xpath+" and ".join(att)+"]"
-                elem = self.website.find_element_by_xpath(XPATH)
+                elem = self.website.find_element(By.XPATH,XPATH)
             except:
                 pass
         else:
@@ -157,7 +161,7 @@ class webEnv:
                     _att.extend(att)
                     _att.append("@href="+"'"+x+"'")
                     XPATH = xpath+" and ".join(_att)+"]"
-                    elem = self.website.find_element_by_xpath(XPATH)
+                    elem = self.website.find_element(By.XPATH,XPATH)
                     break
                 except:
                     continue
@@ -169,7 +173,7 @@ class webEnv:
                     _att.extend(att)
                     _att.append("@href="+"'"+x+"'")
                     XPATH = xpath+" and ".join(_att)+"]"
-                    elem = self.website.find_element_by_xpath(XPATH)
+                    elem = self.website.find_element(By.XPATH,XPATH)
                 except:
                     pass
         return elem
@@ -181,7 +185,7 @@ class webEnv:
         return result_str
 
     def getvectors(self,sentences):
-        vector = self.embedding(sentences)
+        vector = self.model.encode(sentences)
         return vector
     
     def getsimilarity(self, feature_vec_1, feature_vec_2):    

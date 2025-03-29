@@ -282,7 +282,8 @@ from bs4 import BeautifulSoup
 import bs4
 #from collections import defaultdict
 
-from collections import OrderedDict, Callable
+from collections import OrderedDict
+from collections.abc import Callable  
 
 class DefaultOrderedDict(OrderedDict):
     # Source: http://stackoverflow.com/a/6190500/562769
@@ -602,14 +603,14 @@ def q_learning(env, num_episodes,sleep=0,matrix=None,statemap=None,_epsilon=0.2,
 import argparse
 from gooey import Gooey
 
-@Gooey
+#@Gooey
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", help="The home page url of the website")
-    parser.add_argument("--login_urls", help="The login page url of the website, add comma incase of multiple")
-    parser.add_argument("--username", help="The username")
-    parser.add_argument("--password", help="The password")
-    parser.add_argument("--baseurl", help="The base url to check for out of scope websites(without Tailing /), Default is same as home url")
+    parser.add_argument("--url", help="The home page url of the website", default="https://www.saucedemo.com/")
+    parser.add_argument("--login_urls", help="The login page url of the website, add comma incase of multiple", default="https://www.saucedemo.com/")
+    parser.add_argument("--username", help="The username",default="sauce_demo")
+    parser.add_argument("--password", help="The password", default="secret_sauce")
+    parser.add_argument("--baseurl", help="The base url to check for out of scope websites(without Tailing /), Default is same as home url",default="https://www.saucedemo.com/")
     parser.add_argument("--action_wait", help="Action weight time in seconds, default is 0.5",default=0.5,type=float)
     parser.add_argument("--episodes", help="Number of episodes to run, default in 2",default=2,type=int)
     parser.add_argument("--matrix", help="path of matrix to resume, default is None",default=None)
@@ -623,7 +624,7 @@ def main():
     
     #env = webEnv(url="http://192.168.1.68/timeclock/",BaseURL="http://192.168.1.68/timeclock",actionWait=0.5)
     login_urls = args.login_urls.split(",")
-    base = ""
+    base = "https://www.saucedemo.com/"
     if args.baseurl:
         base = args.baseurl
     else:
