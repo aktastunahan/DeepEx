@@ -188,16 +188,20 @@ class webEnv:
     def write(self,elem,login_url,username,password,email):
         html = elem.get_attribute("outerHTML")
         sentence = self.getSentence(html)
+        
         if sentence!="":
-            v_sentence = self.getvectors(sentence)
-            #print("***********************")
-            simL = []
-            for x in self.datalabel:
-                x_vector = self.getvectors(x)
-                sim = self.getsimilarity(x_vector,v_sentence)
-                simL.append(sim)
-                #print(x+" is "+str(sim)+" similar to '"+sentence+"'")
-            mostsim = self.datalabel[np.argmax(simL)]
+            if "user" in sentence and "name" in sentence: 
+                mostsim = "username"
+            else:
+                v_sentence = self.getvectors(sentence)
+                #print("***********************")
+                simL = []
+                for x in self.datalabel:
+                    x_vector = self.getvectors(x)
+                    sim = self.getsimilarity(x_vector,v_sentence)
+                    simL.append(sim)
+                    #print(x+" is "+str(sim)+" similar to '"+sentence+"'")
+                mostsim = self.datalabel[np.argmax(simL)]
             #print("'"+sentence+"' is most similar to "+mostsim)
             PARAMS = {'value':mostsim}
             r = requests.get(url = "http://localhost:3000/", params = PARAMS)
@@ -239,6 +243,7 @@ class webEnv:
             try:
                 if elem.get_attribute("value")=="" or elem.get_attribute("value")==None:
                     if elem.get_attribute("value")!=d["'d'"][0]:
+                        elem.clear()
                         elem.send_keys(d["'d'"][0])
                 return 1
             except:
@@ -250,6 +255,7 @@ class webEnv:
             try:
                 if elem.get_attribute("value")=="" or elem.get_attribute("value")==None:
                     if elem.get_attribute("value")!=d["'d'"][0]:
+                        elem.clear()
                         elem.send_keys(d["'d'"][0])
                 return 1
                 #elem.send_keys(d["'d'"][0])

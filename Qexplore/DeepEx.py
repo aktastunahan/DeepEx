@@ -492,8 +492,7 @@ def deep_ex_learning(env, num_episodes,sleep=0,matrix=None,statemap=None,_epsilo
                 env.reset()
                 break
             env.draw_square(all_elements[action])
-            time.sleep(0.33
-                       )
+            time.sleep(0.33)
             html = all_elements[action].get_attribute("outerHTML")
             print(f"selected action html: {html[:100]}")
             env.remove_drawn_square()
