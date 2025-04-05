@@ -10,7 +10,8 @@ import itertools
 from bs4 import BeautifulSoup
 import bs4
 
-from collections import OrderedDict, Callable, defaultdict
+from collections import OrderedDict, defaultdict
+from collections.abc import Callable
 
 class DefaultOrderedDict(OrderedDict):
     # Source: http://stackoverflow.com/a/6190500/562769
@@ -141,7 +142,7 @@ if __name__ == '__main__':
         exclude = [path+"index.html",path+"temp.html"]
         states = [file for file in glob.glob(path+"*.html") if file not in exclude]
     elif c=="c":
-        path = "./doms/"
+        path = ".q/doms/"
         exclude = [path+"temp.html"]
         states = [file for file in glob.glob(path+"*.html") if file not in exclude]
     else:

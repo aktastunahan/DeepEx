@@ -26,16 +26,23 @@ import js_regex
 from sklearn.metrics.pairwise import cosine_similarity
 import ast
 import datetime
-
-
+from spellchecker import SpellChecker
+import os
+import subprocess
 
 class webEnv:
     
     def __init__(self,url,BaseURL="http://localhost/timeclock/",actionWait=0.5):
         self.url = url
-        self.tags_to_find = ['input','button','a','select']
+        self.tags_to_find = ['input','button','a','select','option','audio','video', 'textarea',"submit","radio","checkbox","image"]
+        self.tags_for_clickable = ['button','a','select','select2','audio','video',"submit","radio","checkbox","image"]
+        self.tags_for_typable = ['input','textarea','search','password']
+        self.tags_to_find = self.tags_for_clickable + self.tags_for_typable
         self.website  = webdriver.Chrome()
         self.website.get(url)
+        self.website.execute_cdp_cmd('Network.setBlockedURLs', {"urls": ["www.saucelabs.com/"]})
+        self.website.execute_cdp_cmd('Network.enable', {})
+        self.original_window_id=self.website.current_window_handle
         self.datalabel = ['zipcode','city','streetname','secondaryaddress',
                 'county','country','countrycode','state','stateabbr',
                 'latitude','longitude','address','email','username',
@@ -44,141 +51,68 @@ class webEnv:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
         #self.embedding = self.model.encode("This is a test sentence.")
         #self.embedding = sister.MeanEmbedding(lang="en")
+     
         self.edict = enchant.Dict('en_US')
+        
         self.tagAttr = {'a':[''],'button':['value','name'],
                         'select':['name','class'],
-                   'input':['placeholder','name','value']}
+                   'input':['placeholder','name', 'value']}
         self.prev_password = None
         self.BaseURL = BaseURL
         self.currentDepth=0
         self.actionWait = actionWait
+        self.all_elements = self.website.find_elements("xpath", "//*")
+        org_dir = os.getcwd()
+        os.chdir("Data generator")
+        subprocess.Popen(["npm", "start"], shell=True)
+        os.chdir(org_dir)
+        time.sleep(1)
     
-    def get_Actions_OR_state(self,action=False):
-        tagstr = []
-        for x in self.tags_to_find:
-            xtags = self.website.find_elements(By.TAG_NAME,x)
-            if xtags!=[]:
-                for element in xtags:
-                    s = x+"!@!"
-                    if x=='input':
-                        try:
-                            if element.get_attribute('name')is not '' and element.get_attribute('name')is not None:
-                                s+=element.get_attribute('name').strip()+'!@!'
-                            else:
-                                s+='nan!@!'
-                        except:
-                            s+='nan!@!'
-                        try:
-                            value_attr = element.get_attribute('value')
-                            type_attr = element.get_attribute('type')
-                        
-                            if value_attr is not '' and value_attr is not None and type_attr not in ["text","password"]:
-                                s+=element.get_attribute('value').strip()+'!@!'
-                                #s+='nan!@!'
-                            else:
-                                s+='nan!@!'
-                        except:
-                            s+='nan!@!'
-                        s+='nan'
-                        
-                    elif x=='button':
-                        s+='nan!@!' #name
-                        try:
-                            if element.get_attribute('value') is not '' and element.get_attribute('value') is not None:
-                                s+=element.get_attribute('value').strip()+'!@!'
-                            else:
-                                s+='nan!@!'
-                        except:
-                            s+='nan!@!'
-                        s+='nan'
-                    elif x=='a':
-                        s+='nan!@!' #name
-                        s+='nan!@!' #value
-                        try:
-                            if element.get_attribute('href') is not '' and element.get_attribute('href') is not None:
-                                s+=element.get_attribute('href').strip()
-                            else:
-                                s+='nan'
-                        except:
-                            s+='nan'
-                    elif x=='select':
-                        try:
-                            if element.get_attribute('name') is not '' and element.get_attribute('name') is not None:
-                                s+=element.get_attribute('name').strip()+'!@!'
-                            else:
-                                s+='nan!@!'
-                        except:
-                            s+='nan!@!'
-                        s+='nan!@!' #value
-                        s+='nan'    #href
-                    tagstr.append(s)
-        if action:
-            dedup_list = []
-            for i in tagstr:
-                if i not in dedup_list:
-                    dedup_list.append(i)
+    def get_all_elements(self):
+        self.all_elements = self.website.find_elements("xpath", "//*")
+        return self.all_elements
 
-            #tagstr = list(set(tagstr))
-            #tagstr.sort(reverse=True)
-            return dedup_list
-        else:
-            for i in range(len(tagstr)):
-                x = tagstr[i].split("!@!")
-                if x[0]=="a":
-                    x[-1]="#"
-                x = "!@!".join(x)
-                tagstr[i]=x
-            return "\n".join(tagstr)
+    def get_clickable_state_vector(self, N_max=64, pad_value=-1):
+        """
+        Extracts the state vector from the current web page.
+        
+        Args:
+            N_max: Maximum length of the state vector.
+            pad_value: Value to use for padding.
 
-    def reverseEngineerAction(self,action):
-        tag,name,value,href = action.split('!@!')
-        xpath='//'+tag+'['
-        att = []
-        hreflist = []
-        XPATH = ""
-        if name!='nan':
-            att.append('@name='+'"'+name+'"')
-        if value!='nan':
-            att.append('@value='+'"'+value+'"')
-        if href!='nan':
-            hreflist.append(href)
-            for x in range(1,len(href.split("/"))):
-                temphref = "/".join(href.split("/")[x::])
-                hreflist.append(temphref)
-                hreflist.append("../"+temphref)
-                hreflist.append("/"+temphref)
-        elem = None
-        if hreflist==[]:
-            try:
-                XPATH = xpath+" and ".join(att)+"]"
-                elem = self.website.find_element(By.XPATH,XPATH)
-            except:
-                pass
-        else:
-            for x in hreflist:
-                try:
-                    _att = []
-                    _att.extend(att)
-                    _att.append("@href="+"'"+x+"'")
-                    XPATH = xpath+" and ".join(_att)+"]"
-                    elem = self.website.find_element(By.XPATH,XPATH)
-                    break
-                except:
-                    continue
-            if elem==None:
-                #print("none")
-                try:
-                    x="#"
-                    _att = []
-                    _att.extend(att)
-                    _att.append("@href="+"'"+x+"'")
-                    XPATH = xpath+" and ".join(_att)+"]"
-                    elem = self.website.find_element(By.XPATH,XPATH)
-                except:
-                    pass
-        return elem
+        Returns:
+            A list of indices representing clickable elements, padded/truncated to N_max.
+        """
+        # Identify clickable elements
+        clickable_indices = []
+        for index, element in enumerate(self.all_elements):
+            tag = element.tag_name.lower()
+            type_attr = element.get_attribute("type")
+            is_text=( type_attr == "text" 
+                        or type_attr == "" 
+                        or type_attr == "password"
+                        or type_attr == "email"
+                        or type_attr == None)
             
+            is_clickable = (tag in self.tags_for_clickable or (tag == "input" and not is_text) or 
+                element.get_attribute("onclick") is not None  # Check inline JS click events
+            )
+            
+            is_typeable = (
+                (tag == "textarea") or (tag == "input" and is_text) 
+            )
+            is_formfill = (tag == "form" or tag == "fieldset")
+            if is_clickable or is_typeable or is_formfill:
+                clickable_indices.append(index)
 
+        # Pad or truncate to ensure fixed length
+        if len(clickable_indices) < N_max:
+            clickable_indices.extend([pad_value] * (N_max - len(clickable_indices)))
+        else:
+            clickable_indices = clickable_indices[:N_max]
+        
+        return clickable_indices
+    
     def get_random_string(self,length):
         letters = string.ascii_lowercase
         result_str = ''.join(random.choice(letters) for i in range(length))
@@ -198,7 +132,7 @@ class webEnv:
         soup = BeautifulSoup(html,'lxml')
         sentence = ""
         table = str.maketrans('', '', string.punctuation)
-        for tag in self.tags_to_find:
+        for tag in ['input','button','a','select']:
             for t in soup.findAll(tag):
                 att = t.attrs
                 for chose in self.tagAttr[tag]:
@@ -232,6 +166,7 @@ class webEnv:
         for num in wordninja.split(sentence):
             word = ''.join([i for i in num if not i.isdigit()])
             try:
+                #if word in self.spell and len(word)>1:
                 if self.edict.check(word) and len(word)>1:
                     sentence_new+=word+" "
                     #print(word)
@@ -273,7 +208,7 @@ class webEnv:
                 d["'d'"][0]=date
             if mostsim=="paragraph" or mostsim=="word":
                 d["'d'"][0] = "abcd123456"
-            if mostsim=="username":
+            if mostsim=="username": # or mostsim=="lastname"
                 if self.website.current_url in login_url:
                     if username!=None:
                         d["'d'"][0] = username
@@ -321,7 +256,7 @@ class webEnv:
                 #return 1
             except:
                 return 0
-               
+
     def checkDone(self,depth):
         if self.currentDepth>=depth:
             return True
@@ -331,8 +266,9 @@ class webEnv:
     
     def step(self,elem,login_url="",username=None,password=None,depth=4,email=None):
         
-        clickable = ["a","button","submit","select","radio","checkbox","image"]
+        clickable = ["a","button","submit","select","radio","checkbox","image","select2"]
         writable = ["input","text","password","search"]
+        formfill = ["form","fieldset"]
         status = 0
         
         if elem.tag_name in clickable or elem.get_attribute('Type') in clickable:
@@ -353,11 +289,56 @@ class webEnv:
             status = self.write(elem,login_url,username,password,email)
             if status:
                 self.currentDepth+=1
+        elif elem.tag_name in formfill:
+            children = elem.find_elements("xpath", "./*")
+            status = 0
+            done = False
+            for child in children:
+                status_step, done_step = self.step(child, login_url,username,password,depth,email)
+                done |= done_step
+                if status_step != 0:
+                    status = status_step
+            return status, done
         else:
             return 0,self.checkDone(depth)
         
         return status,self.checkDone(depth)
 
+    def getUrl(self):
+        return self.website.current_url
+    
+    def close_tabs(self):
+        if len(self.website.window_handles) > 1:
+            for window in self.website.window_handles:
+                if window != self.original_window_id:
+                    self.website.switch_to.window(window)
+                    self.website.close()
+                    self.website.switch_to.window(self.original_window_id)
+        if "saucelabs" in self.website.current_url:
+            self.website.back()
+
+    def draw_square(self,element):
+         self.website.execute_script("""
+                const el = arguments[0];
+                const rect = el.getBoundingClientRect();
+                const box = document.createElement('div');
+                box.style.position = 'fixed';
+                box.style.top = rect.top + 'px';
+                box.style.left = rect.left + 'px';
+                box.style.width = rect.width + 'px';
+                box.style.height = rect.height + 'px';
+                box.style.border = '3px solid red';
+                box.style.zIndex = 9999;
+                box.style.pointerEvents = 'none';  // Don't block mouse events
+                box.setAttribute('data-selenium-highlight', 'true');  // 🔥 Add this line
+                document.body.appendChild(box);
+            """, element)
+
+    def remove_drawn_square(self):
+        self.website.execute_script("""
+            document.querySelectorAll('[data-selenium-highlight="true"]').forEach(el => el.remove());
+        """)
+        
     def reset(self,curl=""):
         if curl=="":
             self.website.get(self.url)
@@ -367,7 +348,7 @@ class webEnv:
             self.website.get(curl)
             #self.currentDepth=0
             #self.prev_password = None
-        
+    
     def close(self):
         try:
             self.website.close()
